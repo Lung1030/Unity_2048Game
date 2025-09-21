@@ -17,39 +17,32 @@ public class GameManager : MonoBehaviour
     public Text timeText;
     public Button restartButton;
     public GameObject gameOverPanel; // 遊戲結束面板（可選）
-    public Button infoButton;
-    public GameObject infoPanel;
-    public Button closeButton;
 
     [Header("Game State")]
     private int score = 0;
     private int bestScore = 0;
     private float timer = 0f;
     private bool isGameOver = false;
+    private bool hasWon = false; // 追蹤是否已勝利
     private bool hasMoved = false; // 追蹤是否有移動發生
 
     void Start()
     {
         // 載入最高分數
         bestScore = PlayerPrefs.GetInt("BestScore", 0);
-
+        
         grid = new Tile[gridSize, gridSize];
         CreateBoard();
-
+        
         // 初始化遊戲
         AddRandomTile();
         AddRandomTile();
-
+        
         UpdateUI();
-
+        
         // 綁定重新開始按鈕
         if (restartButton != null)
             restartButton.onClick.AddListener(RestartGame);
-
-        if (infoButton != null)
-            infoButton.onClick.AddListener(show_info);
-        if (closeButton != null)
-            closeButton.onClick.AddListener(close_info);
     }
 
     void Update()
@@ -83,8 +76,14 @@ public class GameManager : MonoBehaviour
             AddRandomTile();
             UpdateUI();
             
-            // 檢查遊戲是否結束
-            if (IsGameOver())
+            // 先檢查是否達到2048（勝利條件）
+            if (!hasWon && CheckWin())
+            {
+                hasWon = true;
+                EndGameWithWin();
+            }
+            // 再檢查遊戲是否結束（失敗條件）
+            else if (IsGameOver())
             {
                 EndGame();
             }
@@ -285,6 +284,19 @@ public class GameManager : MonoBehaviour
         return result;
     }
 
+    bool CheckWin()
+    {
+        for (int x = 0; x < gridSize; x++)
+        {
+            for (int y = 0; y < gridSize; y++)
+            {
+                if (grid[x, y].Number == 2048)
+                    return true;
+            }
+        }
+        return false;
+    }
+
     bool IsGameOver()
     {
         // 檢查是否還有空格
@@ -309,6 +321,27 @@ public class GameManager : MonoBehaviour
         }
         
         return true;
+    }
+
+    void EndGameWithWin()
+    {
+        isGameOver = true;
+        
+        // 更新最高分數
+        if (score > bestScore)
+        {
+            bestScore = score;
+            PlayerPrefs.SetInt("BestScore", bestScore);
+            PlayerPrefs.Save();
+        }
+        
+        UpdateUI();
+        
+        // 顯示勝利訊息
+        Debug.Log("恭喜！你達到了2048！最終分數: " + score);
+        
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(true);
     }
 
     void EndGame()
@@ -345,27 +378,30 @@ public class GameManager : MonoBehaviour
     {
         if (timeText != null)
         {
-            int minutes = Mathf.FloorToInt(timer / 60);
+            int hours = Mathf.FloorToInt(timer / 3600);
+            int minutes = Mathf.FloorToInt((timer % 3600) / 60);
             int seconds = Mathf.FloorToInt(timer % 60);
-            timeText.text = string.Format("Time {0:00}:{1:00}", minutes, seconds);
+            
+            if (hours > 0)
+            {
+                timeText.text = string.Format("Time: {0:00}:{1:00}:{2:00}", hours, minutes, seconds);
+            }
+            else
+            {
+                timeText.text = string.Format("Time: {0:00}:{1:00}", minutes, seconds);
+            }
         }
     }
-    public void show_info()
-    {
-        infoPanel.SetActive(true);
-    }
-    public void close_info()
-    {
-        infoPanel.SetActive(false);
-    }
+
     public void RestartGame()
     {
         // 重置遊戲狀態
         score = 0;
         timer = 0f;
         isGameOver = false;
+        hasWon = false; // 重置勝利狀態
         hasMoved = false;
-
+        
         // 清空所有格子
         for (int x = 0; x < gridSize; x++)
         {
@@ -374,18 +410,18 @@ public class GameManager : MonoBehaviour
                 grid[x, y].SetNumber(0);
             }
         }
-
+        
         // 添加初始格子
         AddRandomTile();
         AddRandomTile();
-
+        
         // 更新UI
         UpdateUI();
-
+        
         // 隱藏遊戲結束面板
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
-
+        
         Debug.Log("遊戲重新開始！");
     }
 
