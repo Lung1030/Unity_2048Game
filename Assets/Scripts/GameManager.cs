@@ -17,6 +17,16 @@ public class GameManager : MonoBehaviour
     public Text timeText;
     public Button restartButton;
     public GameObject gameOverPanel; // 遊戲結束面板（可選）
+    public Button infoButton;
+    public GameObject infoPanel;
+    public Button closeButton;
+
+    [Header("Audio Settings")]
+    public Button volumeButton;
+    public AudioSource audioSource;
+    public Sprite Onsprite;  // 音效開啟時的圖片
+    public Sprite Offsprite; // 音效關閉時的圖片
+    private bool mute_vol = false;
 
     [Header("Game State")]
     private int score = 0;
@@ -31,18 +41,61 @@ public class GameManager : MonoBehaviour
         // 載入最高分數
         bestScore = PlayerPrefs.GetInt("BestScore", 0);
         
+        // 載入音量設置
+        mute_vol = PlayerPrefs.GetInt("MuteVolume", 0) == 1;
+        InitializeVolumeSettings();
+
         grid = new Tile[gridSize, gridSize];
         CreateBoard();
-        
+
         // 初始化遊戲
         AddRandomTile();
         AddRandomTile();
-        
+
         UpdateUI();
-        
-        // 綁定重新開始按鈕
+
+        // 綁定按鈕事件
         if (restartButton != null)
             restartButton.onClick.AddListener(RestartGame);
+        if (infoButton != null)
+            infoButton.onClick.AddListener(show_info);
+        if (closeButton != null)
+            closeButton.onClick.AddListener(close_info);
+        if (volumeButton != null)
+            volumeButton.onClick.AddListener(volume_oc);
+    }
+
+    void InitializeVolumeSettings()
+    {
+        if (audioSource != null)
+        {
+            // 設置音量：靜音時為0，開啟時為0.5
+            audioSource.volume = mute_vol ? 0f : 0.5f;
+        }
+        
+        // 設置正確的按鈕圖片
+        UpdateVolumeButtonImage();
+        
+        Debug.Log("音量設置初始化完成 - 靜音狀態: " + mute_vol + " - 音量: " + (audioSource != null ? audioSource.volume.ToString() : "無AudioSource"));
+    }
+
+    void UpdateVolumeButtonImage()
+    {
+        if (volumeButton != null)
+        {
+            Image buttonImage = volumeButton.GetComponent<Image>();
+            if (buttonImage != null)
+            {
+                if (mute_vol && Offsprite != null)
+                {
+                    buttonImage.sprite = Offsprite;
+                }
+                else if (!mute_vol && Onsprite != null)
+                {
+                    buttonImage.sprite = Onsprite;
+                }
+            }
+        }
     }
 
     void Update()
@@ -313,7 +366,7 @@ public class GameManager : MonoBehaviour
                 // 檢查右邊
                 if (x < gridSize - 1 && grid[x + 1, y].Number == current)
                     return false;
-                
+
                 // 檢查下面
                 if (y < gridSize - 1 && grid[x, y + 1].Number == current)
                     return false;
@@ -384,13 +437,52 @@ public class GameManager : MonoBehaviour
             
             if (hours > 0)
             {
-                timeText.text = string.Format("Time: {0:00}:{1:00}:{2:00}", hours, minutes, seconds);
+                timeText.text = string.Format("Time {0:00}:{1:00}:{2:00}", hours, minutes, seconds);
             }
             else
             {
-                timeText.text = string.Format("Time: {0:00}:{1:00}", minutes, seconds);
+                timeText.text = string.Format("Time {0:00}:{1:00}", minutes, seconds);
             }
         }
+    }
+
+    public void show_info()
+    {
+        infoPanel.SetActive(true);
+    }
+
+    public void close_info()
+    {
+        infoPanel.SetActive(false);
+    }
+
+    public void volume_oc()
+    {
+        // 切換靜音狀態
+        mute_vol = !mute_vol;
+        
+        if (audioSource != null)
+        {
+            if (mute_vol)
+            {
+                // 靜音：音量設為0
+                audioSource.volume = 0f;
+                Debug.Log("音效已關閉 - 音量: 0");
+            }
+            else
+            {
+                // 開啟音效：音量設為0.5
+                audioSource.volume = 0.5f;
+                Debug.Log("音效已開啟 - 音量: 0.5");
+            }
+        }
+        
+        // 更新按鈕圖片
+        UpdateVolumeButtonImage();
+        
+        // 保存音量設置
+        PlayerPrefs.SetInt("MuteVolume", mute_vol ? 1 : 0);
+        PlayerPrefs.Save();
     }
 
     public void RestartGame()
@@ -401,7 +493,7 @@ public class GameManager : MonoBehaviour
         isGameOver = false;
         hasWon = false; // 重置勝利狀態
         hasMoved = false;
-        
+
         // 清空所有格子
         for (int x = 0; x < gridSize; x++)
         {
@@ -410,18 +502,18 @@ public class GameManager : MonoBehaviour
                 grid[x, y].SetNumber(0);
             }
         }
-        
+
         // 添加初始格子
         AddRandomTile();
         AddRandomTile();
-        
+
         // 更新UI
         UpdateUI();
-        
+
         // 隱藏遊戲結束面板
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
-        
+
         Debug.Log("遊戲重新開始！");
     }
 
